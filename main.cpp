@@ -40,9 +40,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT Message, WPARAM wParam, LPARAM lParam)
 				case VK_DOWN:
 					ptrPlayer->moveDown(time);
 					break;
-				case VK_KEYU:
-					PostQuitMessage(0);
-					break;
 				case VK_TAB:
 					ptrPlayer->rotateRight(3.1415 / 180);
 					break;
