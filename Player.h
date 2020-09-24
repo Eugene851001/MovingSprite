@@ -5,14 +5,15 @@
 
 class Player
 {
+	RECT window;
 	float speed;
 	int x, y, width, height;
 	float angle;  
-	XFORM xform;
 	BITMAP Bmp;
+	float scale;
 	void showBitmap(HDC winDC, HANDLE hndSprite);
 public:
-	Player(int x, int y, int width, int height, float speed, HANDLE hndSprite);
+	Player(int x, int y, int width, int height, float speed, HANDLE hndSprite, RECT window);
 	void moveRight(float time);
 	void moveLeft(float time);
 	void moveUp(float time);
@@ -23,7 +24,10 @@ public:
 	int getY();
 	int getWidth();
 	int getHeight();
-	void drawPlayer(HWND hWnd, HANDLE hndSprite);
+	void drawPlayer(HDC winDC, HWND hWnd, HANDLE hndSprite);
+	void changeScale(float deltaScale);
+	void checkForBorders(RECT window);
+	void setWindow(RECT window);
 };
 
 #endif

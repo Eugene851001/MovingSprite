@@ -4,17 +4,7 @@
 
 #include "Player.h"
 
-const int UPDATE_INTERVAL = 40;
-
-float speed = 0.05;
-int timeForFrame = 40;
-int ellapsedTime;
 Player *ptrPlayer;
-char *keyUpText = "Up";
-char *keyDownText = "Down";
-char *keyLeftText = "Left";
-char *keyRightText = "Right";
-char *lastKeyText = "None";
 
 HDC hdcBack;
 HBITMAP hbmBack;
@@ -26,17 +16,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT Message, WPARAM wParam, LPARAM lParam)
 {
 	PAINTSTRUCT ps;
 	static RECT rect;
-	switch(Message) {
-		case WM_CREATE:
-		{
-			GetWindowRect(hWnd, &rect);
-			HDC hdc = GetDC(hWnd);
-			hdcBack = CreateCompatibleDC(hdc);
-			hbmBack = CreateCompatibleBitmap(hdc, rect.right - rect.left, 
-				rect.bottom - rect.top);
-			break;
-		}
-		
+	switch(Message) {		
 		case WM_DESTROY: {
 			PostQuitMessage(0);
 			break;
@@ -44,90 +24,98 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT Message, WPARAM wParam, LPARAM lParam)
 		
 		case WM_KEYDOWN:
 		{
-			int time = ellapsedTime > UPDATE_INTERVAL ? UPDATE_INTERVAL : ellapsedTime;
+			GetClientRect(hWnd, &rect);
+			int time = 10;
 			switch (wParam) 
 			{
 				case VK_RIGHT:
 					ptrPlayer->moveRight(time);
-					lastKeyText = keyRightText;
 					break;
 				case VK_LEFT:
 					ptrPlayer->moveLeft(time);
-					lastKeyText = keyLeftText;
 					break;
 				case VK_UP:
 					ptrPlayer->moveUp(time);
-					lastKeyText = keyUpText;
 					break;
 				case VK_DOWN:
 					ptrPlayer->moveDown(time);
-					lastKeyText = keyDownText;
+					break;
+				case VK_KEYU:
+					PostQuitMessage(0);
 					break;
 				case VK_TAB:
 					ptrPlayer->rotateRight(3.1415 / 180);
 					break;
 			}
+			InvalidateRect(hWnd, &rect, false);
 			break;
-		//	MoveWindow(hWnd, x, y, rect.right - rect.left, rect.bottom - rect.top, TRUE);
 		}
 		case WM_MOUSEWHEEL:
 		{
 			short delta = HIWORD(wParam);
 			short specialKeys = LOWORD(wParam);
-			int time = ellapsedTime > UPDATE_INTERVAL ? UPDATE_INTERVAL : ellapsedTime;
+			int time = 10;
 			time = time * abs(delta) / 60;
 			if(delta > 0)
 			{
 				if(specialKeys & MK_SHIFT)
 					ptrPlayer->moveRight(time);
 				else
-					ptrPlayer->moveUp(time);
+					ptrPlayer->changeScale(delta / 100);
 			}
 			else if(delta < 0)
 			{
 				if(specialKeys & MK_SHIFT)
 					ptrPlayer->moveLeft(time);
 				else
-					ptrPlayer->moveDown(time);
+					ptrPlayer->changeScale(delta /  100);
 			}
+			InvalidateRect(hWnd, &rect, false);
 			break;
 		}
 		case WM_PAINT:
 		{
 			BeginPaint(hWnd, &ps);
+			GetClientRect(hWnd, &rect);
+			hdcBack = CreateCompatibleDC(ps.hdc);
+			hbmBack = CreateCompatibleBitmap(ps.hdc, rect.right - rect.left, 
+				rect.bottom - rect.top);
+			HBITMAP oldBmp = (HBITMAP)SelectObject(hdcBack, hbmBack);
 			LOGBRUSH br;
 			br.lbStyle = BS_SOLID;
-			br.lbColor = 0xEECCCC;
+			br.lbColor = 0xFFFFFF;
 			HBRUSH brush;
 			brush = CreateBrushIndirect(&br);
-			SelectObject(ps.hdc, brush);
-			Rectangle(ps.hdc, ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom);
-			RECT textRect{155, 0, 300, 150};
-			DrawText(ps.hdc, lastKeyText, -1, &textRect, DT_CENTER);
-			ptrPlayer->drawPlayer(hWnd, hndSprite);
+			SelectObject(hdcBack, brush);
+			FillRect(hdcBack, &rect, brush);
+			ptrPlayer->drawPlayer(hdcBack, hWnd, hndSprite);
+			BitBlt(ps.hdc, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, hdcBack, 0, 0, SRCCOPY);
+		
+			SelectObject(hdcBack, oldBmp);
+			DeleteObject(hbmBack);
+			DeleteDC(hdcBack);
 			EndPaint(hWnd, &ps);
 			break;
 		}
-		
+		case WM_SIZE: 
+		{
+			if(ptrPlayer)
+			{
+				GetClientRect(hWnd, &rect);
+				ptrPlayer->checkForBorders(rect);
+				ptrPlayer->setWindow(rect);
+				InvalidateRect(hWnd, NULL, false);
+			}
+			break;	
+		}
 		default:
 			return DefWindowProc(hWnd, Message, wParam, lParam);
 	}
 	return 0;
 }
 
-void showBitmap(HWND hWnd, HANDLE hndSprite) 
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-	HDC winDC = GetDC(hWnd);
-	HDC memDC = CreateCompatibleDC(winDC);
-	BITMAP Bmp;
-	GetObject(hndSprite, sizeof(BITMAP), &Bmp);
-    SelectObject(memDC, hndSprite);
-	StretchBlt(winDC, 0, 0, 64, 64, memDC, 0, 0, Bmp.bmWidth, Bmp.bmHeight, SRCCOPY); 
-    DeleteDC(memDC);
-    ReleaseDC(hWnd, winDC);
-}
-
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 	WNDCLASSEX wc; 
 
 	memset(&wc,0,sizeof(wc));
@@ -146,7 +134,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	}
 
 	HWND hwnd; 
-	hwnd = CreateWindowEx(WS_EX_CLIENTEDGE,"WindowClass","Caption",WS_VISIBLE|WS_OVERLAPPEDWINDOW,
+	hwnd = CreateWindowEx(WS_EX_CLIENTEDGE,"WindowClass","Laba1_OSiSP", WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, 
 		CW_USEDEFAULT, 
 		640, 
@@ -163,24 +151,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	{
 		MessageBox(NULL, "Bitmap loading failed!", "Error!", MB_OK);
 	}
+		
+	RECT rect;
+	GetClientRect(hwnd, &rect);
+	ptrPlayer = new Player(50, 50, 50, 50, 0.4, hndSprite, rect);
 	
-	ptrPlayer = new Player(50, 50, 50, 50, speed, hndSprite);
+	ShowWindow(hwnd, nCmdShow);
+//	UpdateWindow(hwnd);
 
 	MSG msg; 
-	int accumulatedTime = 0;
-	int tm1 = clock();
-	int tm2;
 	while(GetMessage(&msg, NULL, 0, 0)) 
 	{ 
-		tm2 = clock();
-		ellapsedTime = tm2 - tm1;
-		accumulatedTime += ellapsedTime;
-		tm1 = tm2;
-		if(accumulatedTime >= timeForFrame) 
-		{
-			InvalidateRect(hwnd, NULL, FALSE);
-			accumulatedTime -= timeForFrame;
-		}
 		TranslateMessage(&msg);
 		DispatchMessage(&msg); 
 	}
